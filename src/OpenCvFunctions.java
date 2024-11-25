@@ -31,55 +31,54 @@ public class OpenCvFunctions {
     }
 
 
-    public static List<Rect> detectChessboardCells(Mat image) {
-        // Konwertuj obraz na skalę szarości
-        Mat gray = new Mat();
-        Imgproc.cvtColor(image, gray, Imgproc.COLOR_BGR2GRAY);
+    public static void applyImageOnChessboard(String chessboardImagePath, String userImagePath) {
+        // Wczytanie obrazów
+        Mat chessboardImage = Imgcodecs.imread(chessboardImagePath);
+        Mat userImage = Imgcodecs.imread(userImagePath);
 
-        // Zastosowanie detekcji krawędzi Canny
-        Mat edges = new Mat();
-        Imgproc.Canny(gray, edges, 100, 300);
+        if (chessboardImage.empty() || userImage.empty()) {
+            System.out.println("Error: Could not load images. Check file paths.");
+            return;
+        }
 
-        // Znalezienie konturów
-        List<MatOfPoint> contours = new ArrayList<>();
-        Mat hierarchy = new Mat();
-        Imgproc.findContours(edges, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+        // Zakładamy, że obraz szachownicy jest podzielony na równe kwadratowe pola
+        // Zmienna, która określa liczbę pól w szachownicy (np. 8x8 dla klasycznej szachownicy)
+        int rows = 8;
+        int cols = 8;
 
-        // Wyszukiwanie prostokątnych konturów, które odpowiadają polom szachownicy
-        List<Rect> chessboardCells = new ArrayList<>();
-        for (MatOfPoint contour : contours) {
-            Rect boundingRect = Imgproc.boundingRect(contour);
-            // Załóżmy, że pole szachownicy ma odpowiednią wielkość
-            if (boundingRect.width > 30 && boundingRect.height > 30) {
-                chessboardCells.add(boundingRect);
+        // Obliczanie wymiarów jednego pola na szachownicy
+        int fieldWidth = chessboardImage.cols() / cols;
+        int fieldHeight = chessboardImage.rows() / rows;
+
+        // Zmiana rozmiaru obrazu użytkownika, aby pasował do wymiarów pola szachownicy
+        Mat resizedUserImage = new Mat();
+        Size targetSize = new Size(fieldWidth, fieldHeight);
+        Imgproc.resize(userImage, resizedUserImage, targetSize, 0, 0, Imgproc.INTER_AREA);
+
+        // Wybieramy miejsce, w którym chcemy wkleić obraz użytkownika (np. pierwsze pole)
+        int xOffset = fieldWidth; // Pozycja w poziomie
+        int yOffset = fieldHeight; // Pozycja w pionie
+
+        // Tworzymy kopię obrazu szachownicy, aby móc na nim dokonać zmian
+        Mat outputImage = chessboardImage.clone();
+
+        // Kopiowanie obrazu użytkownika na wybrane pole szachownicy
+        for (int y = 0; y < resizedUserImage.rows(); y++) {
+            for (int x = 0; x < resizedUserImage.cols(); x++) {
+                // Pobranie pikseli z obrazu użytkownika
+                double[] userPixel = resizedUserImage.get(y, x);
+
+                // Kopiowanie pikseli do odpowiedniej pozycji na szachownicy
+                outputImage.put(y + yOffset, x + xOffset, userPixel);
             }
         }
 
-        return chessboardCells;
-    }
-
-    // Funkcja do wklejania obrazu użytkownika na szachownicę
-    public static void applyUserImageOnChessboard(Mat chessboardImage, Mat userImage, List<Rect> chessboardCells) {
-        // Zakładając, że pole szachownicy ma odpowiedni rozmiar
-        for (Rect cell : chessboardCells) {
-            // Dopasowanie rozmiaru obrazu użytkownika do rozmiaru pola szachownicy
-            Mat resizedUserImage = new Mat();
-            Imgproc.resize(userImage, resizedUserImage, new Size(cell.width, cell.height));
-
-            // Przekopiowanie obrazu użytkownika do pola szachownicy
-            for (int y = 0; y < resizedUserImage.rows(); y++) {
-                for (int x = 0; x < resizedUserImage.cols(); x++) {
-                    double[] userPixel = resizedUserImage.get(y, x);
-                    chessboardImage.put(cell.y + y, cell.x + x, userPixel);
-                }
-            }
-        }
-
-        // Zapisz wynikowy obraz
-        String outputPath = "final_chessboard_image_with_overlay.jpg";
-        Imgcodecs.imwrite(outputPath, chessboardImage);
+        // Zapisanie wyniku
+        String outputPath = "final_chessboard_image.jpg";
+        Imgcodecs.imwrite(outputPath, outputImage);
         System.out.println("Image with user image inserted saved as: " + outputPath);
     }
+
 
     void algorytm(int userOption)
     {
